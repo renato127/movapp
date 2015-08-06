@@ -7,21 +7,21 @@ import json
 import httplib
 import time
 
-def readJson():
-	with open(sys.argv[1], 'rt') as json_data:
+def readJson(json):
+	with open(json, 'rt') as json_data:
 		data = json.load(json_data)
 		return data
 
-def parser_csv():
-	f = open(sys.argv[1], 'rt')
-	imdbId = []
+def parser_csv(fileName):
+	f = open(fileName, 'rt')
+	parseActorsDict = {}
 	try:
-		reader = csv.reader(f, delimiter=':')
+		reader = csv.reader(f, delimiter=',')
 		for row in reader:
-			imdbId.append(row[0])
+			parseActorsDict[row[1]] = row[2]
 	finally:
 		f.close()
-	return imdbId
+	return parseActorsDict
 
 def parser_actors_csv():
     f = open('actors.csv', 'rt')
@@ -46,34 +46,49 @@ def nameNotInParse(namesCSV, namesParse):
     return newNames
 
 def main():
-	data = readJson()
+	#data = readJson()
+	#inserirDiretores(data)
+	atualizarActorsInMovie()
+
+
+def inserirAtores(data):
 	dictActors = getActorsDictionary(data)
 	listActorsCSV = getActorsList(dictActors)
 	listActorsParse = parser_actors_csv()
 	listActors = nameNotInParse(listActorsCSV, listActorsParse)
-	finalArray = montarArrayDicionario(listActors)
-	insertActorListToParse(finalArray)
+	montarArrayDicionario(listActors)
+
+def inserirDiretores(data):
+	dictDirectors = getActorsDictionary(data)
+	listDirectorsCSV = getActorsList(dictDirectors)
+	montarArrayDicionario(listDirectorsCSV)
+
+def atualizarActorsInMovie():
+	actorsData = parser_csv('actor.csv')
+	#moviesData = readJson('Movies.json')
+
 
 def montarArrayDicionario(listActors):
 	myArray = []
 	newDict = {}
+	batchLimit = 20
 	i = 1
 	for actor in listActors:
 		newDict = {
 			"method": "POST",
-        	"path": "/1/classes/Actor",
+        	"path": "/1/classes/Director",
         	"body": {
         		"name": actor
         	}
 		}
 		myArray.append(newDict)
 		i = i + 1
-		if (i == 30):
-			insertActorListToParse(myArray)
+		if (i == batchLimit):
+			insertListToParse(myArray)
 			i = 1
 			myArray = []
 
-def insertActorListToParse(listActors):
+def insertListToParse(listActors):
 	connection = httplib.HTTPSConnection('api.parse.com', 443)
 	connection.connect()
 	connection.request('POST', '/1/batch', json.dumps({"requests": listActors}), {
@@ -101,7 +116,7 @@ def getActorsList(data):
 def getActorsDictionary(data): 
 	myDict = {}
 	for movie in data['results']:
-		movieActors = movie['Actors']
+		movieActors = movie['Director']
 		aMovieActors = movieActors.split(',')
 		for movieActor in aMovieActors:
 			movieActor = movieActor.strip()
