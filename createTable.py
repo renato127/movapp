@@ -23,22 +23,82 @@ def parser_csv():
 		f.close()
 	return imdbId
 
+def parser_actors_csv():
+    f = open('actors.csv', 'rt')
+    actorsNameList = []
+
+    try:
+        reader = csv.reader(f, delimiter=',')
+        for row in reader:
+            actorsNameList.append(row[1])
+    finally:
+        f.close()
+
+    return actorsNameList
+
+def nameNotInParse(namesCSV, namesParse):
+    newNames = []
+
+    for name in namesCSV:
+        if name not in namesParse:
+            newNames.append(name)
+
+    return newNames
+
 def main():
 	data = readJson()
-	listActors = getAllActorsList(data)
-	insertActorsToParse(listActors)
+	dictActors = getActorsDictionary(data)
+	listActorsCSV = getActorsList(dictActors)
+	listActorsParse = parser_actors_csv()
+	listActors = nameNotInParse(listActorsCSV, listActorsParse)
+	finalArray = montarArrayDicionario(listActors)
+	insertActorListToParse(finalArray)
 
+def montarArrayDicionario(listActors):
+	myArray = []
+	newDict = {}
+	i = 1
+	for actor in listActors:
+		newDict = {
+			"method": "POST",
+        	"path": "/1/classes/Actor",
+        	"body": {
+        		"name": actor
+        	}
+		}
+		myArray.append(newDict)
+		i = i + 1
+		if (i == 30):
+			insertActorListToParse(myArray)
+			i = 1
+			myArray = []
 
-def insertActorsToParse(listActors):
+def insertActorListToParse(listActors):
+	connection = httplib.HTTPSConnection('api.parse.com', 443)
+	connection.connect()
+	connection.request('POST', '/1/batch', json.dumps({"requests": listActors}), {
+		"X-Parse-Application-Id": "wJm8XMGGzNX4EPhneuLUa6sC9gujI5Jiwnfnxl8k",
+		"X-Parse-REST-API-Key": "2nc2p0ePr7RxrIVFOon8ofFZqUFfdSjegXG8qNTB",
+		"Content-Type": "application/json"
+	})
+	result = json.loads(connection.getresponse().read())
+	print result
+
+def insertActorToParse(listActors):
+	j = 0
 	for i in listActors:
-		movieActor = listActors[i]
-		parseActor = retrieveObjects('Actor', movieActor)
-		if (parseActor['results'] == []):
-			result = createObject('Actor', movieActor)
-			print result
-		time.sleep(1)
+		movieActor = listActors[j]
+		result = createObject('Actor', movieActor)
+		print result
+		j = j + 1
 
-def getAllActorsList(data): 
+def getActorsList(data):
+	myList = []
+	for actor in data:
+		myList.append(actor)
+	return myList
+
+def getActorsDictionary(data): 
 	myDict = {}
 	for movie in data['results']:
 		movieActors = movie['Actors']
